@@ -1,0 +1,15 @@
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+
+# Local databases and user feedback
+data/input_files/*
+!data/input_files/.gitkeep
+
+# Generated results
+outputs/*
+!outputs/.gitkeep
