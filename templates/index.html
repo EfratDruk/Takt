@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#10172b">
+  <meta name="csrf-token" content="{{ csrf_token }}">
+  <title>Takt | דוח משוב חכם</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: "Segoe UI", Arial, sans-serif;
+      background: #10172b;
+      color: #f5f7ff;
+      font-synthesis: none;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      min-height: 100vh;
+      margin: 0;
+      background:
+        radial-gradient(ellipse at 82% 4%, #33468b 0, transparent 34rem),
+        radial-gradient(ellipse at 6% 88%, #174e59 0, transparent 30rem),
+        #10172b;
+    }
+
+    .shell { width: min(100% - 32px, 1040px); margin: 0 auto; }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 28px 0;
+    }
+
+    .brand { display: flex; align-items: center; gap: 12px; font-size: 1.15rem; font-weight: 750; }
+    .brand-mark {
+      display: grid;
+      width: 42px;
+      height: 42px;
+      place-items: center;
+      border: 1px solid #ffffff25;
+      border-radius: 14px;
+      background: linear-gradient(145deg, #879bff, #5264db);
+      box-shadow: 0 8px 26px #5264db55;
+      font-size: 1.2rem;
+    }
+    .local-badge { color: #b7c1d9; font-size: .85rem; }
+    .logout-button {
+      min-height: 36px;
+      padding: 0 14px;
+      border: 1px solid #ffffff25;
+      border-radius: 10px;
+      background: #ffffff0b;
+      color: #c5cde0;
+      font: inherit;
+      cursor: pointer;
+    }
+
+    main { padding: clamp(24px, 6vw, 72px) 0 60px; }
+    .intro { max-width: 720px; margin: 0 auto 34px; text-align: center; }
+    .eyebrow {
+      display: inline-flex;
+      padding: 7px 12px;
+      border: 1px solid #8da0ff40;
+      border-radius: 999px;
+      background: #657aff1b;
+      color: #c4ceff;
+      font-size: .85rem;
+    }
+    h1 { margin: 20px 0 12px; font-size: clamp(2.1rem, 6vw, 3.8rem); line-height: 1.12; letter-spacing: -.04em; }
+    .intro p { margin: 0; color: #b6bfd3; font-size: 1.08rem; line-height: 1.75; }
+    .accent { color: #aab8ff; }
+
+    .card {
+      overflow: hidden;
+      border: 1px solid #ffffff1a;
+      border-radius: 24px;
+      background: #192139eF;
+      box-shadow: 0 30px 90px #05091270;
+    }
+    form { padding: clamp(20px, 4vw, 38px); }
+    .section-heading { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+    .step {
+      display: grid;
+      width: 34px;
+      height: 34px;
+      place-items: center;
+      border-radius: 11px;
+      background: #7185ff24;
+      color: #c1ccff;
+      font-weight: 700;
+    }
+    h2 { margin: 0; font-size: 1.12rem; }
+    .hint { margin: 5px 0 13px; color: #9da9c0; font-size: .9rem; }
+    textarea {
+      display: block;
+      width: 100%;
+      min-height: 190px;
+      resize: vertical;
+      padding: 16px;
+      border: 1px solid #ffffff20;
+      border-radius: 15px;
+      outline: none;
+      background: #10172a;
+      color: #f5f7ff;
+      font: inherit;
+      line-height: 1.7;
+      transition: border-color .2s, box-shadow .2s;
+    }
+    textarea:focus, .drop-zone:focus-within { border-color: #8394ff; box-shadow: 0 0 0 3px #7185ff25; }
+    textarea::placeholder { color: #77839c; }
+    .divider { display: flex; align-items: center; gap: 14px; margin: 22px 0; color: #8290aa; font-size: .82rem; }
+    .divider::before, .divider::after { height: 1px; flex: 1; background: #ffffff19; content: ""; }
+
+    .drop-zone {
+      display: grid;
+      min-height: 116px;
+      place-items: center;
+      padding: 20px;
+      border: 1px dashed #7786aa77;
+      border-radius: 15px;
+      background: #11182a80;
+      color: #c6cee0;
+      text-align: center;
+      cursor: pointer;
+    }
+    .drop-zone strong { display: block; margin-bottom: 5px; }
+    .drop-zone small { color: #8996ae; }
+    input[type=file] { max-width: 100%; margin-top: 12px; color: #aeb9d0; font: inherit; }
+    .file-list { min-height: 1.25em; margin-top: 8px; color: #aab8ff; font-size: .88rem; }
+
+    .privacy {
+      display: flex;
+      gap: 10px;
+      margin: 22px 0;
+      padding: 13px 15px;
+      border: 1px solid #7dd7b222;
+      border-radius: 12px;
+      background: #56b98b0d;
+      color: #adcfbf;
+      font-size: .86rem;
+      line-height: 1.55;
+    }
+    .privacy span:first-child { color: #7dd7b2; }
+
+    .submit-row { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; }
+    button, .download-link {
+      display: inline-flex;
+      min-height: 48px;
+      align-items: center;
+      justify-content: center;
+      gap: 9px;
+      padding: 0 22px;
+      border: 0;
+      border-radius: 13px;
+      background: linear-gradient(130deg, #8294ff, #6476ee);
+      box-shadow: 0 9px 22px #5264db35;
+      color: #fff;
+      font: inherit;
+      font-weight: 700;
+      text-decoration: none;
+      cursor: pointer;
+      transition: transform .18s, filter .18s;
+    }
+    button:hover, .download-link:hover { transform: translateY(-1px); filter: brightness(1.08); }
+    button:disabled { opacity: .58; cursor: wait; transform: none; }
+    .submit-note { color: #8996ae; font-size: .84rem; }
+
+    .status {
+      display: none;
+      margin-top: 24px;
+      padding: 18px;
+      border: 1px solid #ffffff20;
+      border-radius: 14px;
+      background: #11182a;
+    }
+    .status.visible { display: block; }
+    .status-line { display: flex; align-items: center; gap: 12px; }
+    .spinner {
+      width: 20px;
+      height: 20px;
+      flex: 0 0 auto;
+      border: 2px solid #ffffff30;
+      border-top-color: #aab8ff;
+      border-radius: 50%;
+      animation: spin .8s linear infinite;
+    }
+    .spinner.hidden { display: none; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .status p { margin: 7px 0 0 32px; color: #9da9c0; font-size: .9rem; }
+    .status.error { border-color: #ff7b7b55; color: #ffc2c2; }
+    .status.success { border-color: #7dd7b255; color: #c1f2dc; }
+    .download-link { min-height: 40px; margin: 14px 0 0 32px; background: #218565; }
+    footer { padding: 0 0 28px; color: #8290aa; font-size: .82rem; text-align: center; }
+
+    @media (max-width: 600px) {
+      header { padding: 20px 0; }
+      .local-badge { font-size: .75rem; }
+      .card { border-radius: 18px; }
+      .submit-row > * { width: 100%; }
+      .submit-note { text-align: center; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header>
+      <div class="brand"><span class="brand-mark" aria-hidden="true">T</span><span>Takt</span></div>
+      <form method="post" action="/logout">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button class="logout-button" type="submit">יציאה</button>
+      </form>
+    </header>
+
+    <main>
+      <section class="intro">
+        <span class="eyebrow">מדיווחי שחקנים לתובנות ברורות</span>
+        <h1>כל המשובים. <span class="accent">תמונה אחת ברורה.</span></h1>
+        <p>הוסיפו משובים, ואנחנו נפצל, נאחד ונקטלג אותם. בסיום תוכלו להוריד דוח Excel מסודר בעברית.</p>
+      </section>
+
+      <section class="card" aria-label="העלאת משובים">
+        <form id="feedback-form">
+          <div class="section-heading">
+            <span class="step">1</span>
+            <div>
+              <h2>הוספת משובים</h2>
+              <div class="hint">אפשר להדביק תגובות או להעלות מסד נתונים, וגם לשלב בין האפשרויות.</div>
+            </div>
+          </div>
+
+          <label for="feedback">הדביקו תגובות — תגובה אחת בכל שורה</label>
+          <textarea id="feedback" name="feedback" placeholder="לדוגמה:
+המשחק נטען לאט בתחילת השלב
+לא ברור איך להשתמש במפה
+הצלילים חזקים מדי"></textarea>
+
+          <div class="divider">או העלאת מסד נתונים</div>
+
+          <label class="drop-zone" for="databases">
+            <span>
+              <strong>בחרו קובצי SQLite מהמחשב</strong>
+              <small>נתמכים: ‎.db, ‎.sqlite, ‎.sqlite3 · עד 16MB לבקשה</small>
+              <input id="databases" name="databases" type="file" accept=".db,.sqlite,.sqlite3" multiple>
+              <span class="file-list" id="file-list" aria-live="polite"></span>
+            </span>
+          </label>
+
+          <div class="privacy"><span aria-hidden="true">●</span><span>המשובים מעובדים בזיכרון בזמן הריצה. תוכן המשובים נשלח ל-Gemini לצורך העיבוד ואינו נשמר בקובץ באתר. מפתח ה-API נשאר בצד השרת.</span></div>
+
+          <div class="submit-row">
+            <button id="submit-button" type="submit"><span>עיבוד המשובים</span><span aria-hidden="true">←</span></button>
+            <span class="submit-note">העיבוד עשוי להימשך מעט ולצרוך מכסת Gemini.</span>
+          </div>
+
+          <section id="status" class="status" role="status" aria-live="polite">
+            <div class="status-line">
+              <span id="spinner" class="spinner" aria-hidden="true"></span>
+              <strong id="status-title"></strong>
+            </div>
+            <p id="status-message"></p>
+            <a id="download-link" class="download-link" hidden>הורדת דוח Excel</a>
+          </section>
+        </form>
+      </section>
+    </main>
+    <footer>הנתונים נשלחים לשירות Gemini לצורך ניתוח. אין לשתף פרטים אישיים או רגישים.</footer>
+  </div>
+
+  <script>
+    const form = document.getElementById("feedback-form");
+    const submitButton = document.getElementById("submit-button");
+    const statusBox = document.getElementById("status");
+    const statusTitle = document.getElementById("status-title");
+    const statusMessage = document.getElementById("status-message");
+    const spinner = document.getElementById("spinner");
+    const downloadLink = document.getElementById("download-link");
+    const fileInput = document.getElementById("databases");
+    const fileList = document.getElementById("file-list");
+
+    fileInput.addEventListener("change", () => {
+      fileList.textContent = Array.from(fileInput.files, file => file.name).join(" · ");
+    });
+
+    function showStatus(title, message, kind = "") {
+      statusBox.className = `status visible ${kind}`;
+      statusTitle.textContent = title;
+      statusMessage.textContent = message;
+    }
+
+    async function pollJob(jobId) {
+      while (true) {
+        await new Promise(resolve => setTimeout(resolve, 1200));
+        const response = await fetch(`/api/jobs/${jobId}`);
+        const job = await response.json();
+        if (!response.ok) {
+          throw new Error(job.error || "לא ניתן לבדוק את מצב העיבוד.");
+        }
+        statusTitle.textContent = job.stage;
+        if (job.status === "completed") {
+          spinner.classList.add("hidden");
+          statusBox.classList.add("success");
+          statusMessage.textContent = "הדוח מוכן. ניתן להוריד אותו למחשב.";
+          downloadLink.href = `/api/jobs/${jobId}/report`;
+          downloadLink.hidden = false;
+          downloadLink.setAttribute("download", "דוח_בעיות_טקט.xlsx");
+          submitButton.disabled = false;
+          return;
+        }
+        if (job.status === "failed") {
+          throw new Error(job.error || "העיבוד נכשל.");
+        }
+      }
+    }
+
+    form.addEventListener("submit", async event => {
+      event.preventDefault();
+      downloadLink.hidden = true;
+      spinner.classList.remove("hidden");
+      submitButton.disabled = true;
+      showStatus("מכינים את המשובים לעיבוד", "הדף יעדכן אתכם בכל שלב.");
+
+      try {
+        const response = await fetch("/api/jobs", {
+          method: "POST",
+          body: new FormData(form),
+          headers: {"X-CSRF-Token": document.querySelector('meta[name="csrf-token"]').content},
+        });
+        const result = await response.json();
+        if (!response.ok) {
+          throw new Error(result.error || "לא ניתן להתחיל את העיבוד.");
+        }
+        await pollJob(result.job_id);
+      } catch (error) {
+        spinner.classList.add("hidden");
+        statusBox.className = "status visible error";
+        statusTitle.textContent = "לא ניתן להשלים את העיבוד";
+        statusMessage.textContent = error.message;
+        submitButton.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

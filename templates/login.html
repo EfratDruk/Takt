@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#10172b">
+  <title>כניסה | Takt</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      display: grid;
+      min-height: 100vh;
+      margin: 0;
+      place-items: center;
+      padding: 24px;
+      background:
+        radial-gradient(ellipse at 82% 4%, #33468b 0, transparent 34rem),
+        radial-gradient(ellipse at 6% 88%, #174e59 0, transparent 30rem),
+        #10172b;
+      color: #f5f7ff;
+      font-family: "Segoe UI", Arial, sans-serif;
+    }
+    main {
+      width: min(100%, 430px);
+      padding: 34px;
+      border: 1px solid #ffffff1a;
+      border-radius: 22px;
+      background: #192139ef;
+      box-shadow: 0 30px 90px #05091270;
+    }
+    .brand { display: flex; align-items: center; gap: 12px; font-size: 1.15rem; font-weight: 750; }
+    .mark {
+      display: grid;
+      width: 42px;
+      height: 42px;
+      place-items: center;
+      border-radius: 14px;
+      background: linear-gradient(145deg, #879bff, #5264db);
+      font-size: 1.2rem;
+    }
+    h1 { margin: 28px 0 8px; font-size: 1.65rem; }
+    p { margin: 0 0 24px; color: #b6bfd3; line-height: 1.6; }
+    label { display: block; margin-bottom: 8px; font-size: .95rem; }
+    input {
+      width: 100%;
+      min-height: 48px;
+      padding: 10px 13px;
+      border: 1px solid #ffffff25;
+      border-radius: 12px;
+      outline: none;
+      background: #10172a;
+      color: #fff;
+      font: inherit;
+    }
+    input:focus { border-color: #8394ff; box-shadow: 0 0 0 3px #7185ff25; }
+    button {
+      width: 100%;
+      min-height: 48px;
+      margin-top: 18px;
+      border: 0;
+      border-radius: 12px;
+      background: linear-gradient(130deg, #8294ff, #6476ee);
+      color: #fff;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .error {
+      margin: 0 0 18px;
+      padding: 12px;
+      border: 1px solid #ff7b7b55;
+      border-radius: 11px;
+      background: #ff7b7b12;
+      color: #ffc2c2;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="brand"><span class="mark" aria-hidden="true">T</span><span>Takt</span></div>
+    <h1>כניסה למערכת</h1>
+    <p>הזינו את סיסמת הגישה כדי לעבד משובים ולהפיק דוח.</p>
+    {% if error %}<div class="error" role="alert">{{ error }}</div>{% endif %}
+    <form method="post" action="/login">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <label for="password">סיסמה</label>
+      <input id="password" name="password" type="password" autocomplete="current-password" required autofocus>
+      <button type="submit">כניסה</button>
+    </form>
+  </main>
+</body>
+</html>
