@@ -21,8 +21,8 @@ Categories:
 5. "שונות" - General meta-feedback or administrative issues that strictly do not fit the above.
 
 CRITICAL RULES:
-- Treat the input issues as English source content. Translate each issue's title and description into clear, natural Hebrew in the output.
-- Write all output text in Hebrew, including categories.
+- Treat the input as English source content. Translate every issue title and description into clear, natural Hebrew.
+- Write the title, description, and category in Hebrew.
 - Every issue MUST be assigned exactly one category from the list above.
 - Preserve each issue's "count" value from the input without changing it.
 - Titles must describe the reported problem, not give instructions or propose solutions.
