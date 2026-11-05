@@ -1,4 +1,5 @@
 import io
+import json
 import logging
 import os
 import secrets
@@ -16,7 +17,10 @@ from flask import redirect, session, url_for
 from dotenv import load_dotenv
 
 from export_excel import export_issues_to_excel
+from categories import DEFAULT_CATEGORIES, validate_categories
+from excel_feedback import load_feedback_from_excel
 from pipeline import process_feedback
+from sqlite_feedback import read_feedback_column
 
 
 load_dotenv()
@@ -145,17 +149,34 @@ def logout():
     return redirect(url_for("login"))
 
 
-def _feedback_from_uploads(uploaded_files):
+def _feedback_from_uploads(
+    uploaded_files,
+    excel_header="הערות",
+    sqlite_column="Comments",
+):
     feedback = []
     with tempfile.TemporaryDirectory(prefix="takt-upload-") as temp_dir:
         for index, uploaded_file in enumerate(uploaded_files):
             original_name = Path(uploaded_file.filename or "").name
             suffix = Path(original_name).suffix.lower()
-            if suffix not in {".db", ".sqlite", ".sqlite3"}:
+            if suffix not in {".db", ".sqlite", ".sqlite3", ".xlsx", ".xlsm"}:
                 raise ValueError(
                     f"Unsupported file type for {original_name or 'upload'}. "
-                    "Upload a .db, .sqlite, or .sqlite3 file."
+                    "Upload a .db, .sqlite, .sqlite3, .xlsx, or .xlsm file."
                 )
+
+            if suffix in {".xlsx", ".xlsm"}:
+                try:
+                    feedback.extend(
+                        load_feedback_from_excel(
+                            io.BytesIO(uploaded_file.read()),
+                            original_name,
+                            header_name=excel_header,
+                        )
+                    )
+                except ValueError as error:
+                    raise ValueError(str(error)) from error
+                continue
 
             temporary_path = Path(temp_dir) / f"database_{index}{suffix}"
             temporary_path.write_bytes(uploaded_file.read())
@@ -163,33 +184,30 @@ def _feedback_from_uploads(uploaded_files):
 
             try:
                 with closing(sqlite3.connect(database_uri, uri=True)) as connection:
-                    rows = connection.execute(
-                        """
-                        SELECT Comments
-                        FROM TrainingFeedback
-                        WHERE Comments IS NOT NULL
-                          AND TRIM(Comments) != '';
-                        """
-                    ).fetchall()
-            except sqlite3.Error as error:
+                    rows = read_feedback_column(connection, sqlite_column)
+            except (sqlite3.Error, ValueError) as error:
                 raise ValueError(
                     f"Could not read {original_name}: {error}"
                 ) from error
 
             feedback.extend(
-                {"source_file": original_name, "comment": row[0]}
+                {"source_file": original_name, "comment": str(row[0]).strip()}
                 for row in rows
             )
     return feedback
 
 
-def _run_job(job_id, feedback):
+def _run_job(job_id, feedback, categories):
     def update_stage(message):
         with jobs_lock:
             jobs[job_id]["stage"] = message
 
     try:
-        issues = process_feedback(feedback, progress_callback=update_stage)
+        issues = process_feedback(
+            feedback,
+            progress_callback=update_stage,
+            categories=categories,
+        )
         workbook_buffer = io.BytesIO()
         export_issues_to_excel(issues, output_path=workbook_buffer)
         workbook_buffer.seek(0)
@@ -211,12 +229,22 @@ def _run_job(job_id, feedback):
 
 @app.get("/")
 def index():
-    return render_template("index.html", csrf_token=_csrf_token())
+    return render_template(
+        "index.html",
+        csrf_token=_csrf_token(),
+        default_categories=DEFAULT_CATEGORIES,
+    )
 
 
 @app.post("/api/jobs")
 def create_job():
     pasted_text = request.form.get("feedback", "")
+    excel_header = request.form.get("excel_header", "הערות").strip()
+    sqlite_column = request.form.get("sqlite_column", "Comments").strip()
+    try:
+        categories = validate_categories(json.loads(request.form.get("categories", "[]")))
+    except (json.JSONDecodeError, ValueError) as error:
+        return jsonify(error=str(error)), 400
     feedback = [
         line.strip()
         for line in pasted_text.splitlines()
@@ -228,8 +256,28 @@ def create_job():
         for uploaded_file in request.files.getlist("databases")
         if uploaded_file.filename
     ]
+    has_excel_upload = any(
+        Path(uploaded_file.filename).suffix.lower() in {".xlsx", ".xlsm"}
+        for uploaded_file in uploaded_files
+    )
+    has_sqlite_upload = any(
+        Path(uploaded_file.filename).suffix.lower()
+        in {".db", ".sqlite", ".sqlite3"}
+        for uploaded_file in uploaded_files
+    )
+    if has_excel_upload and not excel_header:
+        return jsonify(error="יש להזין את שם הכותרת של עמודת המשובים בקובץ Excel."), 400
+    if has_sqlite_upload and not sqlite_column:
+        return jsonify(error="יש להזין את שם עמודת המשובים במסד הנתונים."), 400
+
     try:
-        feedback.extend(_feedback_from_uploads(uploaded_files))
+        feedback.extend(
+            _feedback_from_uploads(
+                uploaded_files,
+                excel_header=excel_header,
+                sqlite_column=sqlite_column,
+            )
+        )
     except ValueError as error:
         return jsonify(error=str(error)), 400
 
@@ -249,7 +297,7 @@ def create_job():
 
     threading.Thread(
         target=_run_job,
-        args=(job_id, feedback),
+        args=(job_id, feedback, categories),
         daemon=True,
     ).start()
     return jsonify(job_id=job_id), 202
