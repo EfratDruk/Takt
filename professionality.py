@@ -1,9 +1,9 @@
 import json
-import time
 from google import genai
-from google.genai.errors import ServerError
 from google.genai import types
 from dotenv import load_dotenv
+
+from gemini_api import generate_content_with_retry
 
 load_dotenv()
 
@@ -34,21 +34,15 @@ Input Issues:
 {json.dumps(single_issues_list, ensure_ascii=False)}
 """
 
-    for attempt in range(3):
-        try:
-            response = client.models.generate_content(
-                model="gemini-3.8-flash",
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    response_mime_type="application/json",
-                    temperature=0,
-                ),
-            )
-            break
-        except ServerError as error:
-            if error.code != 503 or attempt == 2:
-                raise
-            time.sleep(2 ** (attempt + 1))
+    response = generate_content_with_retry(
+        client,
+        model="gemini-3.8-flash",
+        contents=prompt,
+        config=types.GenerateContentConfig(
+            response_mime_type="application/json",
+            temperature=0,
+        ),
+    )
 
     result_dict = json.loads(response.text)
     return result_dict.get("refined_issues", [])

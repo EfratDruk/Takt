@@ -36,10 +36,13 @@ app.config["SESSION_COOKIE_SECURE"] = (
 logger = logging.getLogger(__name__)
 jobs = {}
 jobs_lock = threading.Lock()
+processing_lock = threading.Lock()
 login_attempts = {}
 login_attempts_lock = threading.Lock()
 LOGIN_MAX_ATTEMPTS = 5
 LOGIN_WINDOW_SECONDS = 15 * 60
+MAX_QUEUED_JOBS = 3
+JOB_TTL_SECONDS = 60 * 60
 
 
 def _csrf_token():
@@ -212,11 +215,33 @@ def _run_job(job_id, feedback, categories):
         export_issues_to_excel(issues, output_path=workbook_buffer)
         workbook_buffer.seek(0)
         with jobs_lock:
-            jobs[job_id].update(
-                status="completed",
-                stage="הדוח מוכן להורדה",
-                report=workbook_buffer.getvalue(),
+            jobs[job_id]["resume_state"] = state
+
+    try:
+        with processing_lock:
+            with jobs_lock:
+                jobs[job_id].update(
+                    status="running",
+                    stage="העיבוד התחיל",
+                )
+            issues = process_feedback(
+                feedback,
+                progress_callback=update_stage,
+                checkpoint_callback=save_checkpoint,
+                resume_state=resume_state,
             )
+            workbook_buffer = io.BytesIO()
+            export_issues_to_excel(issues, output_path=workbook_buffer)
+            workbook_buffer.seek(0)
+            with jobs_lock:
+                jobs[job_id].update(
+                    status="completed",
+                    stage="הדוח מוכן להורדה",
+                    report=workbook_buffer.getvalue(),
+                    feedback=None,
+                    resume_state=None,
+                    can_retry=False,
+                )
     except Exception as error:
         logger.exception("Feedback processing job %s failed", job_id)
         with jobs_lock:
@@ -224,6 +249,12 @@ def _run_job(job_id, feedback, categories):
                 status="failed",
                 stage="העיבוד נכשל",
                 error=str(error),
+                can_retry=bool(getattr(error, "retryable", False)),
+                retry_not_before=(
+                    time.time() + error.retry_after_seconds
+                    if getattr(error, "retry_after_seconds", 0)
+                    else 0
+                ),
             )
 
 
@@ -288,16 +319,83 @@ def create_job():
 
     job_id = uuid.uuid4().hex
     with jobs_lock:
+        now = time.time()
+        expired_jobs = [
+            existing_id
+            for existing_id, job in jobs.items()
+            if job["status"] in {"completed", "failed"}
+            and now - job["created_at"] > JOB_TTL_SECONDS
+        ]
+        for existing_id in expired_jobs:
+            jobs.pop(existing_id, None)
+
+        queued_jobs = sum(
+            job["status"] in {"queued", "running"}
+            for job in jobs.values()
+        )
+        if queued_jobs >= MAX_QUEUED_JOBS:
+            return jsonify(
+                error="יש כרגע כמה משימות בתור. נסו שוב בעוד מספר דקות."
+            ), 429
+
         jobs[job_id] = {
-            "status": "running",
-            "stage": "המשימה מתחילה",
+            "status": "queued",
+            "stage": "המשימה ממתינה בתור",
             "error": None,
             "report": None,
+            "created_at": now,
+            "feedback": feedback,
+            "resume_state": {},
+            "can_retry": False,
+            "retry_not_before": 0,
         }
 
     threading.Thread(
         target=_run_job,
         args=(job_id, feedback, categories),
+        daemon=True,
+    ).start()
+    return jsonify(job_id=job_id), 202
+
+
+@app.post("/api/jobs/<job_id>/retry")
+def retry_job(job_id):
+    with jobs_lock:
+        job = jobs.get(job_id)
+        if job is None or job["status"] != "failed" or not job["can_retry"]:
+            return jsonify(error="למשימה זו אין אפשרות לניסיון חוזר אוטומטי."), 400
+
+        wait_seconds = job["retry_not_before"] - time.time()
+        if wait_seconds > 0:
+            return jsonify(
+                error=(
+                    "יש להמתין עוד "
+                    f"{int(wait_seconds + 0.999)} שניות לפני הניסיון החוזר."
+                )
+            ), 429
+
+        queued_jobs = sum(
+            queued_job["status"] in {"queued", "running"}
+            for queued_job in jobs.values()
+        )
+        if queued_jobs >= MAX_QUEUED_JOBS:
+            return jsonify(
+                error="יש כרגע כמה משימות בתור. נסו שוב בעוד מספר דקות."
+            ), 429
+
+        job.update(
+            status="queued",
+            stage="המשימה ממתינה לניסיון חוזר",
+            error=None,
+            can_retry=False,
+            retry_not_before=0,
+        )
+        feedback = job["feedback"]
+        resume_state = job["resume_state"]
+
+    threading.Thread(
+        target=_run_job,
+        args=(job_id, feedback, resume_state),
         daemon=True,
     ).start()
     return jsonify(job_id=job_id), 202
@@ -313,6 +411,7 @@ def get_job(job_id):
             status=job["status"],
             stage=job["stage"],
             error=job["error"],
+            can_retry=job["can_retry"],
         )
 
 

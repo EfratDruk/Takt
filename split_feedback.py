@@ -1,62 +1,81 @@
 import json
-import time
 from google import genai
-from google.genai.errors import ServerError
 from google.genai import types
 from dotenv import load_dotenv
+
+from gemini_api import generate_content_with_retry
 
 load_dotenv()
 
 def split_from_db(raw_feedback_list):
   client = genai.Client()
   prompt = f"""
-You are Takt's Issue Atomizer. 
-Your job is to take a dynamic list of raw feedback comments from a database and break down EVERY comment into individual, single-issue statements. 
-
-Some comments might contain 1 issue, some might contain multiple issues. Break them all down so the output is a clean, expanded list where every item is strictly ONE independent issue.
+You are Takt's feedback analyst.
+For every raw feedback comment, identify each distinct issue, split multi-issue
+comments into separate issues, and write each issue as a professional title
+and clear description in English.
 
 CRITICAL RULES:
-- Write all outputs in English.
-- Do NOT categorize yet. Do NOT invent technical causes.
-- IF A COMMENT CONTAINS MULTIPLE ISSUES (e.g., a bug/save issue AND missing instructions), YOU MUST SPLIT THEM INTO SEPARATE ITEMS.
-- Output MUST be a valid JSON object containing a flat list of strings under the key "issues".
+- Process every input comment and do not omit any reported issue.
+- Each output item must describe exactly one independent issue.
+- Titles must briefly describe the reported problem, not give commands or solutions.
+- Descriptions must be clear and professional without inventing technical causes.
+- Do not categorize yet.
+- If an input item is an object, its raw comment is in the "comment" field.
+- Output MUST be a valid JSON object with objects under the key "issues".
 
 EXAMPLES:
 
 Input: ["Not all scenarios were saved at the end and were deleted, more clear instructions are needed."]
 Output: {{
   "issues": [
-    "Not all scenarios were saved at the end and were deleted",
-    "More clear instructions are needed"
+    {{
+      "title": "Game scenarios are not saved",
+      "description": "Scenarios are missing after the session ends."
+    }},
+    {{
+      "title": "Instructions are unclear",
+      "description": "The instructions need to be clearer."
+    }}
   ]
 }}
 
 Input: ["The game lagged during the tutorial and I couldn't skip the movie"]
 Output: {{
   "issues": [
-    "The game lagged during the tutorial",
-    "Unable to skip the cinematic movie"
+    {{
+      "title": "Lag during the tutorial",
+      "description": "The game lags while the tutorial is running."
+    }},
+    {{
+      "title": "The cinematic cannot be skipped",
+      "description": "The player cannot skip the cinematic."
+    }}
   ]
 }}
 
-Raw Feedback from DB:
+Output Format:
+{{
+  "issues": [
+    {{
+      "title": "Short title describing the problem",
+      "description": "Clear, objective description of the problem"
+    }}
+  ]
+}}
+
+Raw Feedback:
 {json.dumps(raw_feedback_list, ensure_ascii=False)}
 """
-  for attempt in range(3):
-    try:
-      response = client.models.generate_content(
-          model="gemini-3.8-flash",
-          contents=prompt,
-          config=types.GenerateContentConfig(
-              response_mime_type="application/json",
-              temperature=0,
-          ),
-      )
-      break
-    except ServerError as error:
-      if error.code != 503 or attempt == 2:
-        raise
-      time.sleep(2 ** (attempt + 1))
+  response = generate_content_with_retry(
+      client,
+      model="gemini-3.8-flash",
+      contents=prompt,
+      config=types.GenerateContentConfig(
+          response_mime_type="application/json",
+          temperature=0,
+      ),
+  )
 
   result_dict = json.loads(response.text)
   return result_dict.get("issues", [])

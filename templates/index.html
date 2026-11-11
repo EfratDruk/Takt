@@ -274,6 +274,7 @@
     .status.error { border-color: #ff7b7b55; color: #ffc2c2; }
     .status.success { border-color: #7dd7b255; color: #c1f2dc; }
     .download-link { min-height: 40px; margin: 14px 0 0 32px; background: #218565; }
+    .retry-button { min-height: 40px; margin: 14px 0 0 32px; background: #5264db; }
     footer { padding: 0 0 28px; color: #8290aa; font-size: .82rem; text-align: center; }
 
     @media (max-width: 600px) {
@@ -366,6 +367,7 @@
             </div>
             <p id="status-message"></p>
             <a id="download-link" class="download-link" hidden>הורדת דוח Excel</a>
+            <button id="retry-button" class="retry-button" type="button" hidden>ניסיון חוזר מהנקודה האחרונה</button>
           </section>
         </form>
       </section>
@@ -381,6 +383,7 @@
     const statusMessage = document.getElementById("status-message");
     const spinner = document.getElementById("spinner");
     const downloadLink = document.getElementById("download-link");
+    const retryButton = document.getElementById("retry-button");
     const fileInput = document.getElementById("databases");
     const fileList = document.getElementById("file-list");
     const fileListHeading = document.getElementById("file-list-heading");
@@ -543,6 +546,7 @@
           spinner.classList.add("hidden");
           statusBox.classList.add("success");
           statusMessage.textContent = "הדוח מוכן. ניתן להוריד אותו למחשב.";
+          retryButton.hidden = true;
           downloadLink.href = `/api/jobs/${jobId}/report`;
           downloadLink.hidden = false;
           downloadLink.setAttribute("download", "דוח_בעיות_טקט.xlsx");
@@ -550,14 +554,52 @@
           return;
         }
         if (job.status === "failed") {
-          throw new Error(job.error || "העיבוד נכשל.");
+          spinner.classList.add("hidden");
+          statusBox.className = "status visible error";
+          statusMessage.textContent = job.error || "העיבוד נכשל.";
+          retryButton.hidden = !job.can_retry;
+          submitButton.disabled = false;
+          return;
         }
       }
     }
 
+    async function retryJob(jobId) {
+      retryButton.disabled = true;
+      retryButton.hidden = true;
+      spinner.classList.remove("hidden");
+      showStatus("ממשיכים מהנקודה האחרונה", "שלבים שכבר הושלמו לא יישלחו שוב ל-Gemini.");
+      try {
+        const response = await fetch(`/api/jobs/${jobId}/retry`, {
+          method: "POST",
+          headers: {"X-CSRF-Token": document.querySelector('meta[name="csrf-token"]').content},
+        });
+        const result = await response.json();
+        if (!response.ok) {
+          throw new Error(result.error || "לא ניתן להפעיל ניסיון חוזר.");
+        }
+        await pollJob(jobId);
+      } catch (error) {
+        spinner.classList.add("hidden");
+        statusBox.className = "status visible error";
+        statusTitle.textContent = "לא ניתן להפעיל ניסיון חוזר";
+        statusMessage.textContent = error.message;
+        retryButton.hidden = false;
+      } finally {
+        retryButton.disabled = false;
+      }
+    }
+
+    retryButton.addEventListener("click", () => {
+      if (retryButton.dataset.jobId) {
+        retryJob(retryButton.dataset.jobId);
+      }
+    });
+
     form.addEventListener("submit", async event => {
       event.preventDefault();
       downloadLink.hidden = true;
+      retryButton.hidden = true;
       spinner.classList.remove("hidden");
       submitButton.disabled = true;
       showStatus("מכינים את המשובים לעיבוד", "הדף יעדכן אתכם בכל שלב.");
@@ -572,6 +614,7 @@
         if (!response.ok) {
           throw new Error(result.error || "לא ניתן להתחיל את העיבוד.");
         }
+        retryButton.dataset.jobId = result.job_id;
         await pollJob(result.job_id);
       } catch (error) {
         spinner.classList.add("hidden");
