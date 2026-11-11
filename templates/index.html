@@ -273,6 +273,38 @@
     .status p { margin: 7px 0 0 32px; color: #9da9c0; font-size: .9rem; }
     .status.error { border-color: #ff7b7b55; color: #ffc2c2; }
     .status.success { border-color: #7dd7b255; color: #c1f2dc; }
+    .processing-steps {
+      display: grid;
+      gap: 9px;
+      margin: 16px 32px 0 0;
+      padding: 0;
+      list-style: none;
+    }
+    .processing-step { display: flex; align-items: center; gap: 9px; color: #8996ae; font-size: .88rem; }
+    .processing-step-indicator {
+      display: grid;
+      width: 22px;
+      height: 22px;
+      flex: 0 0 auto;
+      place-items: center;
+      border: 1px solid #ffffff30;
+      border-radius: 50%;
+      color: #9da9c0;
+      font-size: .74rem;
+      font-weight: 700;
+    }
+    .processing-step.active { color: #dce2ff; }
+    .processing-step.active .processing-step-indicator {
+      border-color: #aab8ff;
+      background: #7185ff24;
+      color: #c4ceff;
+    }
+    .processing-step.completed { color: #a8dec5; }
+    .processing-step.completed .processing-step-indicator {
+      border-color: #7dd7b255;
+      background: #56b98b18;
+      color: #7dd7b2;
+    }
     .download-link { min-height: 40px; margin: 14px 0 0 32px; background: #218565; }
     .retry-button { min-height: 40px; margin: 14px 0 0 32px; background: #5264db; }
     footer { padding: 0 0 28px; color: #8290aa; font-size: .82rem; text-align: center; }
@@ -302,7 +334,7 @@
       <section class="intro">
         <span class="eyebrow">מדיווחי שחקנים לתובנות ברורות</span>
         <h1>כל המשובים. <span class="accent">תמונה אחת ברורה.</span></h1>
-        <p>הוסיפו משובים, ואנחנו נפצל, נאחד ונקטלג אותם. בסיום תוכלו להוריד דוח Excel מסודר בעברית.</p>
+        <p>הוסיפו משובים, ואנחנו נפצל לנושאים, ננסח, נאחד ונקטלג אותם בארבעה שלבים. בסיום תוכלו להוריד דוח Excel מסודר בעברית.</p>
       </section>
 
       <section class="card" aria-label="העלאת משובים">
@@ -366,6 +398,12 @@
               <strong id="status-title"></strong>
             </div>
             <p id="status-message"></p>
+            <ol class="processing-steps" aria-label="שלבי עיבוד המשובים">
+              <li class="processing-step" data-processing-step="1"><span class="processing-step-indicator" aria-hidden="true">1</span><span>פיצול המשובים לנושאים</span></li>
+              <li class="processing-step" data-processing-step="2"><span class="processing-step-indicator" aria-hidden="true">2</span><span>ניסוח מקצועי באנגלית</span></li>
+              <li class="processing-step" data-processing-step="3"><span class="processing-step-indicator" aria-hidden="true">3</span><span>איחוד נושאים כפולים</span></li>
+              <li class="processing-step" data-processing-step="4"><span class="processing-step-indicator" aria-hidden="true">4</span><span>תרגום לעברית וסיווג</span></li>
+            </ol>
             <a id="download-link" class="download-link" hidden>הורדת דוח Excel</a>
             <button id="retry-button" class="retry-button" type="button" hidden>ניסיון חוזר מהנקודה האחרונה</button>
           </section>
@@ -384,6 +422,7 @@
     const spinner = document.getElementById("spinner");
     const downloadLink = document.getElementById("download-link");
     const retryButton = document.getElementById("retry-button");
+    const processingSteps = Array.from(document.querySelectorAll("[data-processing-step]"));
     const fileInput = document.getElementById("databases");
     const fileList = document.getElementById("file-list");
     const fileListHeading = document.getElementById("file-list-heading");
@@ -533,6 +572,22 @@
       statusMessage.textContent = message;
     }
 
+    function updateProcessingSteps(stage, complete = false) {
+      const match = stage.match(/שלב (\d) מתוך 4/);
+      const activeStep = match ? Number(match[1]) : 0;
+      for (const step of processingSteps) {
+        const number = Number(step.dataset.processingStep);
+        const isCompleted = complete || (activeStep > 0 && number < activeStep);
+        step.classList.toggle("completed", isCompleted);
+        step.classList.toggle("active", !complete && number === activeStep);
+        if (!complete && number === activeStep) {
+          step.setAttribute("aria-current", "step");
+        } else {
+          step.removeAttribute("aria-current");
+        }
+      }
+    }
+
     async function pollJob(jobId) {
       while (true) {
         await new Promise(resolve => setTimeout(resolve, 1200));
@@ -542,6 +597,7 @@
           throw new Error(job.error || "לא ניתן לבדוק את מצב העיבוד.");
         }
         statusTitle.textContent = job.stage;
+        updateProcessingSteps(job.stage, job.status === "completed");
         if (job.status === "completed") {
           spinner.classList.add("hidden");
           statusBox.classList.add("success");

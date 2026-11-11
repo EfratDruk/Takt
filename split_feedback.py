@@ -12,14 +12,14 @@ def split_from_db(raw_feedback_list):
   prompt = f"""
 You are Takt's feedback analyst.
 For every raw feedback comment, identify each distinct issue, split multi-issue
-comments into separate issues, and write each issue as a professional title
-and clear description in English.
+comments into separate issues. Preserve each issue's original meaning in
+straightforward English without polishing or reframing it.
 
 CRITICAL RULES:
 - Process every input comment and do not omit any reported issue.
 - Each output item must describe exactly one independent issue.
-- Titles must briefly describe the reported problem, not give commands or solutions.
-- Descriptions must be clear and professional without inventing technical causes.
+- Titles must briefly identify the reported problem, not give commands or solutions.
+- Descriptions must preserve the reported details without inventing technical causes.
 - Do not categorize yet.
 - If an input item is an object, its raw comment is in the "comment" field.
 - Output MUST be a valid JSON object with objects under the key "issues".
