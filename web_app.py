@@ -200,20 +200,15 @@ def _feedback_from_uploads(
     return feedback
 
 
-def _run_job(job_id, feedback, categories):
+def _run_job(job_id, feedback, categories, resume_state=None):
+    if resume_state is None:
+        resume_state = {}
+
     def update_stage(message):
         with jobs_lock:
             jobs[job_id]["stage"] = message
 
-    try:
-        issues = process_feedback(
-            feedback,
-            progress_callback=update_stage,
-            categories=categories,
-        )
-        workbook_buffer = io.BytesIO()
-        export_issues_to_excel(issues, output_path=workbook_buffer)
-        workbook_buffer.seek(0)
+    def save_checkpoint(state):
         with jobs_lock:
             jobs[job_id]["resume_state"] = state
 
@@ -227,6 +222,7 @@ def _run_job(job_id, feedback, categories):
             issues = process_feedback(
                 feedback,
                 progress_callback=update_stage,
+                categories=categories,
                 checkpoint_callback=save_checkpoint,
                 resume_state=resume_state,
             )
@@ -345,6 +341,7 @@ def create_job():
             "report": None,
             "created_at": now,
             "feedback": feedback,
+            "categories": categories,
             "resume_state": {},
             "can_retry": False,
             "retry_not_before": 0,
@@ -352,7 +349,7 @@ def create_job():
 
     threading.Thread(
         target=_run_job,
-        args=(job_id, feedback, categories),
+        args=(job_id, feedback, categories, {}),
         daemon=True,
     ).start()
     return jsonify(job_id=job_id), 202
@@ -391,11 +388,12 @@ def retry_job(job_id):
             retry_not_before=0,
         )
         feedback = job["feedback"]
+        categories = job["categories"]
         resume_state = job["resume_state"]
 
     threading.Thread(
         target=_run_job,
-        args=(job_id, feedback, resume_state),
+        args=(job_id, feedback, categories, resume_state),
         daemon=True,
     ).start()
     return jsonify(job_id=job_id), 202
