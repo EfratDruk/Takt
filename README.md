@@ -27,19 +27,21 @@
 
 5. If you started it from a terminal, open <http://127.0.0.1:5000> in your browser.
 
-The page accepts one feedback comment per line or SQLite database files containing
-the `TrainingFeedback.Comments` column. The workflow processes comments in
-batches, then provides a Hebrew Excel report. It runs one team job at a time,
-combines splitting with professional rewriting and combines deduplication with
-Hebrew translation and categorization. This uses one Gemini request per batch
-of 20 comments, plus one final request.
+The page accepts one feedback comment per line, SQLite database files with a
+`TrainingFeedback` table (the feedback column defaults to `Comments`), or Excel
+`.xlsx` / `.xlsm` files with a column headed `הערות`. The Excel loader extracts
+non-empty cells below that header before sending feedback to Gemini. In the web
+form, enter a different header or SQLite column name when your file uses another
+column title. The workflow runs four Gemini stages—split, professional
+refinement, deduplication, and categorization—then provides a Hebrew Excel
+report. Split and professional refinement process batches of 20.
 
-Temporary Gemini 503 errors and recognized per-minute 429 limits receive a
-small number of delayed retries. Daily quota exhaustion is not retried because
-retrying cannot restore that quota. A team job waiting behind another job does
-not send Gemini requests until its turn. If a temporary error persists, the
-page offers a retry that resumes from the last completed batch instead of
-repeating finished requests.
+The web page includes editable Hebrew category names and descriptions. Category
+changes are saved in that browser's local storage and sent to Gemini with each
+submitted job; they are not shared across browsers or saved on the server.
+
+Gemini 503 errors receive a small number of delayed retries. Other API errors,
+including quota errors, are reported without automatic retries.
 
 Uploaded databases are written to a temporary directory and removed after
 reading. Feedback is sent to Gemini for processing. The app binds to localhost
@@ -59,9 +61,7 @@ controls before sharing it over the internet. Never commit the `.env` file.
 4. Deploy the service and open its `onrender.com` URL. Share that URL and the
    app password only with intended users.
 
-The app uses in-memory job storage and is configured for one Gunicorn worker;
-do not increase the worker count without moving job state and job serialization
-to shared storage. A server restart clears queued jobs, retry checkpoints, and
+The app uses in-memory job storage; a server restart clears active jobs and
 completed reports.
 Choose a Render plan that meets your usage needs. Anyone with the app password
 can run jobs that use your Gemini API quota.

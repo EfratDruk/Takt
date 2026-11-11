@@ -130,7 +130,87 @@
     .drop-zone strong { display: block; margin-bottom: 5px; }
     .drop-zone small { color: #8996ae; }
     input[type=file] { max-width: 100%; margin-top: 12px; color: #aeb9d0; font: inherit; }
-    .file-list { min-height: 1.25em; margin-top: 8px; color: #aab8ff; font-size: .88rem; }
+    .file-list {
+      display: grid;
+      gap: 8px;
+      margin-top: 12px;
+      text-align: right;
+    }
+    .file-list[hidden] { display: none; }
+    .file-list-heading { color: #c6cee0; font-size: .84rem; font-weight: 650; }
+    .file-list-items { display: grid; gap: 7px; margin: 0; padding: 0; list-style: none; }
+    .file-item {
+      display: flex;
+      min-width: 0;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 11px;
+      border: 1px solid #ffffff19;
+      border-radius: 10px;
+      background: #0e1525;
+    }
+    .file-type {
+      display: grid;
+      width: 38px;
+      height: 34px;
+      flex: 0 0 auto;
+      place-items: center;
+      border: 1px solid #8294ff38;
+      border-radius: 8px;
+      background: #7185ff15;
+      color: #c4ceff;
+      font-size: .65rem;
+      font-weight: 750;
+      direction: ltr;
+    }
+    .file-details { display: grid; min-width: 0; gap: 3px; }
+    .file-name {
+      overflow: hidden;
+      color: #e6eaff;
+      font-size: .86rem;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .file-size { color: #8996ae; font-size: .76rem; }
+    .category-list { display: grid; gap: 12px; }
+    .category-card {
+      display: grid;
+      grid-template-columns: minmax(0, .8fr) minmax(0, 2fr) auto;
+      align-items: end;
+      gap: 12px;
+      padding: 14px;
+      border: 1px solid #ffffff19;
+      border-radius: 13px;
+      background: #11182a80;
+    }
+    .category-card label { display: grid; gap: 7px; color: #c6cee0; font-size: .85rem; }
+    .category-card input, .category-card textarea, #excel-header, #sqlite-column {
+      width: 100%;
+      min-height: 42px;
+      padding: 10px 12px;
+      border: 1px solid #ffffff20;
+      border-radius: 10px;
+      outline: none;
+      background: #10172a;
+      color: #f5f7ff;
+      font: inherit;
+    }
+    .category-card textarea { min-height: 64px; resize: vertical; }
+    .category-card input:focus, .category-card textarea:focus,
+    #excel-header:focus, #sqlite-column:focus { border-color: #8394ff; }
+    .category-remove, .category-add {
+      min-height: 40px;
+      padding: 0 13px;
+      border: 1px solid #ffffff25;
+      border-radius: 10px;
+      background: #ffffff0b;
+      color: #c5cde0;
+      font: inherit;
+      cursor: pointer;
+    }
+    .category-add { margin-top: 12px; border-color: #8294ff55; color: #c4ceff; }
+    .category-status { min-height: 1.4em; margin-top: 7px; color: #7dd7b2; font-size: .84rem; }
+    .category-status.error { color: #ffc2c2; }
 
     .privacy {
       display: flex;
@@ -203,6 +283,8 @@
       .card { border-radius: 18px; }
       .submit-row > * { width: 100%; }
       .submit-note { text-align: center; }
+      .category-card { grid-template-columns: 1fr; }
+      .category-remove { justify-self: start; }
     }
   </style>
 </head>
@@ -229,7 +311,7 @@
             <span class="step">1</span>
             <div>
               <h2>הוספת משובים</h2>
-              <div class="hint">אפשר להדביק תגובות או להעלות מסד נתונים, וגם לשלב בין האפשרויות.</div>
+              <div class="hint">אפשר להדביק תגובות או להעלות מסד נתונים / קובץ Excel, וגם לשלב בין האפשרויות.</div>
             </div>
           </div>
 
@@ -241,14 +323,35 @@
 
           <div class="divider">או העלאת מסד נתונים</div>
 
+          <label for="excel-header">שם כותרת עמודת המשובים בקובץ Excel</label>
+          <input id="excel-header" name="excel_header" type="text" value="הערות" autocomplete="off">
+          <div class="hint">העמודה בעלת הכותרת הזו תיקרא מכל גיליון שבו היא מופיעה.</div>
+
+          <label for="sqlite-column">שם עמודת המשובים במסד הנתונים</label>
+          <input id="sqlite-column" name="sqlite_column" type="text" value="Comments" autocomplete="off">
+          <div class="hint">שם הטבלה נשאר TrainingFeedback. ברירת המחדל לעמודת המשובים היא Comments.</div>
+
           <label class="drop-zone" for="databases">
             <span>
-              <strong>בחרו קובצי SQLite מהמחשב</strong>
-              <small>נתמכים: ‎.db, ‎.sqlite, ‎.sqlite3 · עד 16MB לבקשה</small>
-              <input id="databases" name="databases" type="file" accept=".db,.sqlite,.sqlite3" multiple>
-              <span class="file-list" id="file-list" aria-live="polite"></span>
+              <strong>בחרו קובצי SQLite או Excel מהמחשב</strong>
+              <small>Excel: יש לכלול עמודה עם הכותרת שהוזנה למעלה · נתמכים ‎.xlsx, ‎.xlsm, ‎.db, ‎.sqlite, ‎.sqlite3 · עד 16MB לבקשה</small>
+              <input id="databases" name="databases" type="file" accept=".db,.sqlite,.sqlite3,.xlsx,.xlsm" multiple>
             </span>
           </label>
+          <div class="file-list" id="file-list" aria-live="polite" hidden>
+            <div class="file-list-heading" id="file-list-heading"></div>
+            <ul class="file-list-items" id="file-list-items"></ul>
+          </div>
+
+          <div class="divider">קטגוריות לדוח</div>
+          <section aria-labelledby="categories-title">
+            <h2 id="categories-title">הקטגוריות</h2>
+            <div class="hint">אפשר לערוך, למחוק או להוסיף קטגוריות. השמות והתיאורים בעברית יישלחו ל-Gemini וישמשו לסיווג.</div>
+            <div id="category-list" class="category-list"></div>
+            <button id="add-category" class="category-add" type="button">הוספת קטגוריה</button>
+            <div id="category-status" class="category-status" aria-live="polite">הקטגוריות נשמרות בדפדפן הזה בלבד.</div>
+            <input id="categories-json" name="categories" type="hidden">
+          </section>
 
           <div class="privacy"><span aria-hidden="true">●</span><span>המשובים מעובדים בזיכרון בזמן הריצה. תוכן המשובים נשלח ל-Gemini לצורך העיבוד ואינו נשמר בקובץ באתר. מפתח ה-API נשאר בצד השרת.</span></div>
 
@@ -283,9 +386,145 @@
     const retryButton = document.getElementById("retry-button");
     const fileInput = document.getElementById("databases");
     const fileList = document.getElementById("file-list");
+    const fileListHeading = document.getElementById("file-list-heading");
+    const fileListItems = document.getElementById("file-list-items");
+    const categoryList = document.getElementById("category-list");
+    const categoryStatus = document.getElementById("category-status");
+    const categoriesInput = document.getElementById("categories-json");
+    const defaultCategories = {{ default_categories | tojson }};
+    const categoryStorageKey = "takt-feedback-categories";
+
+    function readCategories() {
+      try {
+        const saved = localStorage.getItem(categoryStorageKey);
+        const categories = saved ? JSON.parse(saved) : defaultCategories;
+        if (Array.isArray(categories) && categories.length) {
+          return categories;
+        }
+      } catch (_error) {
+        categoryStatus.textContent = "לא ניתן לקרוא את הקטגוריות השמורות; נטענו ברירות המחדל.";
+        categoryStatus.classList.add("error");
+      }
+      return defaultCategories;
+    }
+
+    function getCategoriesFromForm() {
+      return Array.from(categoryList.querySelectorAll(".category-card"), card => ({
+        name: card.querySelector("[data-category-name]").value.trim(),
+        description: card.querySelector("[data-category-description]").value.trim(),
+      }));
+    }
+
+    function updateCategories() {
+      const categories = getCategoriesFromForm();
+      categoriesInput.value = JSON.stringify(categories);
+      try {
+        localStorage.setItem(categoryStorageKey, categoriesInput.value);
+        categoryStatus.textContent = "הקטגוריות נשמרו בדפדפן הזה.";
+        categoryStatus.classList.remove("error");
+      } catch (_error) {
+        categoryStatus.textContent = "לא ניתן לשמור בדפדפן; הקטגוריות יחולו על העיבוד הנוכחי בלבד.";
+        categoryStatus.classList.add("error");
+      }
+    }
+
+    function renderCategories(categories) {
+      categoryList.replaceChildren();
+      categories.forEach(category => {
+        const card = document.createElement("div");
+        card.className = "category-card";
+
+        const nameLabel = document.createElement("label");
+        nameLabel.textContent = "שם הקטגוריה";
+        const nameInput = document.createElement("input");
+        nameInput.type = "text";
+        nameInput.value = category.name || "";
+        nameInput.required = true;
+        nameInput.setAttribute("data-category-name", "");
+        nameInput.dir = "auto";
+        nameLabel.append(nameInput);
+
+        const descriptionLabel = document.createElement("label");
+        descriptionLabel.textContent = "תיאור והנחיות לסיווג";
+        const descriptionInput = document.createElement("textarea");
+        descriptionInput.value = category.description || "";
+        descriptionInput.required = true;
+        descriptionInput.setAttribute("data-category-description", "");
+        descriptionInput.dir = "auto";
+        descriptionLabel.append(descriptionInput);
+
+        const removeButton = document.createElement("button");
+        removeButton.type = "button";
+        removeButton.className = "category-remove";
+        removeButton.textContent = "מחיקה";
+        removeButton.addEventListener("click", () => {
+          if (categoryList.children.length <= 1) {
+            categoryStatus.textContent = "יש להשאיר לפחות קטגוריה אחת.";
+            categoryStatus.classList.add("error");
+            return;
+          }
+          card.remove();
+          updateCategories();
+        });
+
+        card.append(nameLabel, descriptionLabel, removeButton);
+        categoryList.append(card);
+      });
+      updateCategories();
+    }
+
+    renderCategories(readCategories());
+    categoryList.addEventListener("input", updateCategories);
+    document.getElementById("add-category").addEventListener("click", () => {
+      renderCategories([...getCategoriesFromForm(), {name: "", description: ""}]);
+      categoryList.lastElementChild.querySelector("[data-category-name]").focus();
+    });
 
     fileInput.addEventListener("change", () => {
-      fileList.textContent = Array.from(fileInput.files, file => file.name).join(" · ");
+      const files = Array.from(fileInput.files);
+      fileListItems.replaceChildren();
+      fileList.hidden = files.length === 0;
+      if (!files.length) {
+        fileListHeading.textContent = "";
+        return;
+      }
+
+      fileListHeading.textContent =
+        files.length === 1 ? "נבחר קובץ אחד:" : `נבחרו ${files.length} קבצים:`;
+
+      for (const file of files) {
+        const item = document.createElement("li");
+        item.className = "file-item";
+
+        const extension = file.name.includes(".")
+          ? file.name.split(".").pop().toUpperCase()
+          : "FILE";
+        const type = document.createElement("span");
+        type.className = "file-type";
+        type.textContent = extension;
+        type.setAttribute("aria-hidden", "true");
+
+        const details = document.createElement("span");
+        details.className = "file-details";
+        details.style.flex = "1";
+        details.style.textAlign = "right";
+
+        const name = document.createElement("span");
+        name.className = "file-name";
+        name.textContent = file.name;
+        name.title = file.name;
+        name.dir = "auto";
+
+        const size = document.createElement("span");
+        size.className = "file-size";
+        size.textContent = file.size < 1024 * 1024
+          ? `${(file.size / 1024).toFixed(1)} KB`
+          : `${(file.size / (1024 * 1024)).toFixed(1)} MB`;
+
+        details.append(name, size);
+        item.append(type, details);
+        fileListItems.append(item);
+      }
     });
 
     function showStatus(title, message, kind = "") {

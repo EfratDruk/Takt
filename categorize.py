@@ -3,30 +3,31 @@ from google import genai
 from google.genai import types
 from dotenv import load_dotenv
 
-from gemini_api import generate_content_with_retry
+from categories import DEFAULT_CATEGORIES, validate_categories
 
 load_dotenv()
 
-def categorize_issues(refined_issues_list):
+
+def categorize_issues(refined_issues_list, categories=None):
+    if categories is None:
+        categories = DEFAULT_CATEGORIES
+    categories = validate_categories(categories)
     client = genai.Client()
     prompt = f"""
 You are an expert Game Product Manager acting as the bridge between raw player feedback and the development team. 
-Your task is to take a list of professionally refined issues and assign each one to STRICTLY ONE of the following defined categories:
-
-Categories:
-1. "הדרכה" - Player onboarding, training on controls/keys, identifying items or mines, and first-time learning.
-2. "מבוא לשלב" - Pre-level briefing screen, level instructions, objective displays, or map preview before starting.
-3. "משחקיות" - In-game mechanics, controls, audio/sound, graphics, physics, and performance (lag, loading times, startup, game saves).
-4. "מערכת סיכום" - Post-game stats, score reviews, summary screens, or debriefing systems.
-5. "שונות" - General meta-feedback or administrative issues that strictly do not fit the above.
+Your task is to assign each issue to exactly one category from the user-provided list below.
 
 CRITICAL RULES:
-- Treat the input issues as English source content. Translate each issue's title and description into clear, natural Hebrew in the output.
-- Write all output text in Hebrew, including categories.
-- Every issue MUST be assigned exactly one category from the list above.
+- Treat the input as English source content. Translate every issue title and description into clear, natural Hebrew.
+- Write the title, description, and category in Hebrew.
+- Use exactly one category name from the provided list for each issue. Do not invent, rename, or translate category names.
+- Use each category's Hebrew description to determine the best match.
 - Preserve each issue's "count" value from the input without changing it.
 - Titles must describe the reported problem, not give instructions or propose solutions.
 - Output MUST be a valid JSON object with the exact structure below.
+
+User-provided categories in Hebrew:
+{json.dumps(categories, ensure_ascii=False)}
 
 Output Format:
 {{

@@ -1,3 +1,5 @@
+from categorize import categorize_issues
+from categories import DEFAULT_CATEGORIES, validate_categories
 from duplicate import deduplicate_issues
 from split_feedback import split_from_db
 
@@ -5,14 +7,12 @@ from split_feedback import split_from_db
 BATCH_SIZE = 20
 
 
-def process_feedback(
-    feedback,
-    progress_callback=None,
-    checkpoint_callback=None,
-    resume_state=None,
-):
+def process_feedback(feedback, progress_callback=None, categories=None):
     if not feedback:
         raise ValueError("No feedback comments were provided.")
+    if categories is None:
+        categories = DEFAULT_CATEGORIES
+    categories = validate_categories(categories)
 
     resume_state = resume_state or {}
 
@@ -53,19 +53,7 @@ def process_feedback(
     if not refined_issues:
         raise ValueError("Feedback processing returned no issues.")
 
-    save_checkpoint({
-        "completed_batches": batch_count,
-        "refined_issues": refined_issues,
-        "ready_for_final": True,
-    })
-    report_progress("שלב 2 מתוך 2: איחוד כפילויות, תרגום לעברית וסיווג")
-    final_issues = deduplicate_issues(refined_issues)
-    save_checkpoint({
-        "completed_batches": batch_count,
-        "refined_issues": refined_issues,
-        "ready_for_final": True,
-        "complete": True,
-        "final_issues": final_issues,
-    })
+    report_progress("שלב 4 מתוך 4: תרגום לעברית וסיווג")
+    final_issues = categorize_issues(deduplicated_issues, categories=categories)
     report_progress("העיבוד הסתיים בהצלחה")
     return final_issues
